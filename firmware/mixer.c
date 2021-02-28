@@ -335,21 +335,6 @@ static void perOut(volatile int16_t *chanOut, uint8_t att)
     { 
         // int8_t rud_stick_m = log2physSticks(RUD_STICK, g_eeGeneral.stickMode); // no need for the heli mix
     
-        //===========Swash Ring================
-        // if(g_model.swashType)
-        // {
-        //     // v - "polomer kruznice", urceny velikosti ele a ail
-        //     // q - maximalni polomer kruznice (v rozich ALI, ELE max je v vetsi jak q)
-        //     // d - bude pomer zmenseni, aby max ELE a AIL nepresahly danou max kruznici
-        //     uint32_t v = ((int32_t)(calibratedStick[ele_stick_m])*calibratedStick[ele_stick_m] +
-        //                   (int32_t)(calibratedStick[ail_stick_m])*calibratedStick[ail_stick_m]);
-        //     uint32_t q = (int32_t)(RESX)*g_model.swashRingValue/100;
-        //     q *= q;
-        //     if(v>q)
-        //         d = isqrt32(v);
-        // }
-        //===========Swash Ring================
-
         // Calc Sticks
         for(i=0; i<STICK_INPUT_CHANNELS; i++)
         {
@@ -391,12 +376,6 @@ static void perOut(volatile int16_t *chanOut, uint8_t att)
                         }
                     }
                 }
-
-                // //===========Swash Ring================
-                // // je potreba korekce na velikost vychylky, do v se spocita korekce pro ele a ail
-                // if(d && (i==ele_stick_m || i==ail_stick_m))
-                //     v = (int32_t)(v)*g_model.swashRingValue*RESX/((int32_t)(d)*100);
-                // //===========Swash Ring================
 
                 uint8_t expoDrOn = GET_DR_STATE(i);
                 uint8_t stkDir = v>0 ? DR_RIGHT : DR_LEFT;
@@ -447,20 +426,38 @@ static void perOut(volatile int16_t *chanOut, uint8_t att)
 
         //===========Swash Ring================
         // recalculated swash ring values for ele and ail
-        int32_t sw_ring_ele = anas[ele_stick_m];
-        int32_t sw_ring_ail = anas[ail_stick_m];
+        // int32_t sw_ring_ele = anas[ele_stick_m];
+        // int32_t sw_ring_ail = anas[ail_stick_m];
+        // if(g_model.swashRingValue)
+        // {
+        //     uint32_t v = ((int32_t)anas[ele_stick_m]*anas[ele_stick_m] + (int32_t)anas[ail_stick_m]*anas[ail_stick_m]);
+        //     uint32_t q = (int32_t)RESX*g_model.swashRingValue/100;
+        //     q *= q;
+        //     if(v>q)
+        //     {
+        //         uint16_t d = isqrt32(v);
+        //         sw_ring_ele = (int32_t)anas[ele_stick_m]*g_model.swashRingValue*RESX/((int32_t)d*100);
+        //         sw_ring_ail = (int32_t)anas[ail_stick_m]*g_model.swashRingValue*RESX/((int32_t)d*100);
+        //     }
+        // }
+
+        int32_t sw_ring_ele = (int32_t)anas[ele_stick_m]*g_model.swashRingValue / 100;
+        int32_t sw_ring_ail = (int32_t)anas[ail_stick_m]*g_model.swashRingValue / 100;
         if(g_model.swashRingValue)
         {
+            // actual r^2 
             uint32_t v = ((int32_t)anas[ele_stick_m]*anas[ele_stick_m] + (int32_t)anas[ail_stick_m]*anas[ail_stick_m]);
-            uint32_t q = (int32_t)RESX*g_model.swashRingValue/100;
-            q *= q;
+            // max r^2
+            uint32_t q = (int32_t)RESX*RESX;
             if(v>q)
             {
+                // RESX/d - radius correction
                 uint16_t d = isqrt32(v);
-                sw_ring_ele = (int32_t)anas[ele_stick_m]*g_model.swashRingValue*RESX/((int32_t)d*100);
-                sw_ring_ail = (int32_t)anas[ail_stick_m]*g_model.swashRingValue*RESX/((int32_t)d*100);
+                sw_ring_ele = (int32_t)(sw_ring_ele * RESX / d);
+                sw_ring_ail = (int32_t)(sw_ring_ail * RESX / d);
             }
         }
+
 
  #define REZ_SWASH_X(x)  ((x) - (x)/8 - (x)/128 - (x)/512)   //  1024*sin(60) ~= 886
  #define REZ_SWASH_Y(x)  ((x))   //  1024 => 1024
